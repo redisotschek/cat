@@ -19,7 +19,7 @@ export class Vector {
 
 type TextureMap = Record<string, Texture[]>;
 
-function getCardinal ({x, y}: Vector): string {
+export function getCardinal ({x, y}: Vector): string {
     const meausurementError = 0.1;
     let direction = '';
     if (y != 0 && Math.abs(y) > meausurementError) {
@@ -100,10 +100,11 @@ type DynamicState = {
 
 const dynamicStates: Record<string, DynamicState> = {
     walking: {
-        speed: 1,
+        speed: 3,
+        fps: 0.1,
     },
     running: {
-        speed: 15,
+        speed: 10,
     },
     sitting_down: {
         postState: 'sitting',
@@ -128,9 +129,9 @@ export class Cat {
         './sounds/zoom1.wav',
         './sounds/zoom2.wav'
     ]
-
+    customFps: number = null;
+    document: Document;
     currentMusic: string;
-
     initialSpriteTextures: Texture[] = [];
     statesList = Object.keys(spriteMap);
     defaultState = 'sitting_down';
@@ -146,7 +147,6 @@ export class Cat {
     }
     targetReached = new Event('targetReached');
     stateChanged = new Event('stateChanged');
-    
     staticTextures: TextureMap = {};
     texturesForAnimation: TextureMap = {};
 
@@ -158,8 +158,9 @@ export class Cat {
 
     screenCenter: Vector;
     lastClick: Vector = null;
-    constructor(app: Application) {
+    constructor(app: Application, document: Document) {
         this.app = app;
+        this.document = document;
         this.screenCenter = new Vector(app.screen.width / 2, app.screen.height / 2);
     }
     async loadTextures () {
@@ -192,46 +193,34 @@ export class Cat {
         }
         return Promise.resolve();
     }
-    clickListener (event: MouseEvent) {
-        this.setTarget(new Vector(event.clientX, event.clientY));
-        // const chanceToMove = Math.random() * 100;
-        // if (chanceToMove > 99) {
-        //     this.setTarget({x: event.clientX, y: event.clientY})
-        //     this.currState = 'walking';
-        // }
-    }
+    clickListener (event: MouseEvent) {}
     isStaticState (state: string) {
         return Object.keys(staticSprites).includes(state);
     }
-    mouseMoveListener (event: MouseEvent) {
-        // this.moveToPosition({
-    }
-    setTarget (v: Vector) {
-        this.currState = 'running';
+    mouseMoveListener (event: MouseEvent) {}
+    setTarget (v: Vector, movementMode: 'walking' | 'running' = 'walking') {
+        this.currState = movementMode;
         this.target = v;
     }
-    moveToPosition ({x, y}: Vector, delta: number) {
-        const speed = dynamicStates[this.currState].speed || 1;
+    isTargetReached({x, y}: Vector): boolean {
         const absX = Math.abs(x - this.catSelf.x);
         const absY = Math.abs(y - this.catSelf.y);
-        if (absX <= 10 && absY <= 10) {
-            this.target = null;
-            dispatchEvent(this.targetReached);
-            return;
-        }
-        const vector = new Vector(x - this.catSelf.x, y - this.catSelf.y);
+        return absX <= 10 && absY <= 10;
+    }
+    moveToPosition (position: Vector, delta: number) {
+        const speed = dynamicStates[this.currState].speed || 1;
+        const vector = new Vector(position.x - this.catSelf.x, position.y - this.catSelf.y);
         const rise = vector.y;
         const run = vector.x;
         const distance = vector.length;
         const nextX = this.catSelf.x + (run / distance) * speed * delta;
         const nextY = this.catSelf.y + (rise / distance) * speed * delta;
+        if (this.isTargetReached(position)) {
+            this.target = null;
+            dispatchEvent(this.targetReached);
+        }
         this.setCatPosition(new Vector(nextX, nextY), vector.normalized);
-    }
-    setDefaultState () {
-        this.currState = 'sitting_down';
-        this.randomSouthDirection();
-        this.catSelf.textures = this.texturesForAnimation[`${this.currState}_${this.currDirection}`];
-        this.setSprite();
+        return;
     }
     setCatPosition ({x, y}: Vector, vector: Vector = null) {
         // move the sprite to the center of the screen
@@ -245,6 +234,12 @@ export class Cat {
         this.catSelf.x = x;
         this.catSelf.y = y;
     }
+    setDefaultState () {
+        this.currState = 'sitting_down';
+        this.randomSouthDirection();
+        this.catSelf.textures = this.texturesForAnimation[`${this.currState}_${this.currDirection}`];
+        this.setSprite();
+    }
     setSprite () {
         if (this.isStaticState(this.currState)) {
             return;
@@ -252,7 +247,11 @@ export class Cat {
         const textures = this.texturesForAnimation[`${this.currState}_${this.currDirection}`];
         const loop = !dynamicStates[this.currState].postState;
         this.catSelf.textures = textures;
-        const fps = dynamicStates[this.currState].fps || textures.length / 20;
+        let fps = dynamicStates[this.currState].fps || textures.length / 20;
+        if (this.customFps) {
+            fps = this.customFps;
+            this.customFps = null;
+        }
         this.catSelf.animationSpeed = fps;
         this.catSelf.loop = loop;
         this.catSelf.play();
@@ -283,6 +282,10 @@ export class Cat {
     }
     
     completeStateChange () {
+        if (dynamicStates[this.currState].postState) {
+            this.currState = dynamicStates[this.currState].postState;
+            this.changeState();
+        }
     }
     init() {
         this.catSelf = new AnimatedSprite(this.initialSpriteTextures);
