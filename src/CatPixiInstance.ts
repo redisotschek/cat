@@ -174,7 +174,7 @@ export class Cat {
             return;
         }
         this.bootBlock = bootBlock;
-        this.screenCenter = new Vector(app.screen.width / 2, app.screen.height / 2);
+        this.screenCenter = new Vector(this.app.screen.width / 2, this.app.screen.height / 2);
     }
     async loadTextures () {
         loader.add('initial', './sprites/default/standing.json');
