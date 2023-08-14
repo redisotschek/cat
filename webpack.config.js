@@ -17,6 +17,7 @@ module.exports = {
   output: {
     filename: 'cat.js',
     path: path.resolve(__dirname, 'dist'),
+    libraryTarget: 'umd',
   },
   devServer: {
     static: {

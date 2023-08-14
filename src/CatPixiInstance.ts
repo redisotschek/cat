@@ -135,7 +135,7 @@ export class Cat {
         './sounds/zoom2.wav'
     ]
     customFps: number = null;
-    document: Document;
+    bootBlock: HTMLElement;
     currentMusic: string;
     initialSpriteTextures: Texture[] = [];
     statesList = Object.keys(spriteMap);
@@ -163,17 +163,17 @@ export class Cat {
 
     screenCenter: Vector;
     lastClick: Vector = null;
-    constructor(app: Application, document: Document) {
+    constructor(app: Application, bootBlock: HTMLElement) {
         this.app = app;
         if (!app) {
             throw new Error('App is required, please make sure you provide the constructor with a PIXI Application instance');
             return;
         }
-        if (!document) {
+        if (!bootBlock) {
             throw new Error('Document is required, please make sure you are using this module in a browser');
             return;
         }
-        this.document = document;
+        this.bootBlock = bootBlock;
         this.screenCenter = new Vector(app.screen.width / 2, app.screen.height / 2);
     }
     async loadTextures () {

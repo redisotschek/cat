@@ -97,9 +97,9 @@ export class SmartCat extends Cat {
     isPlayingFor: number = 0;
     currentMousePosition: Vector = new Vector(0, 0);
     isMouseCaptured: boolean;
-    constructor(app: Application, document: Document = window.document, debug = false) {
+    constructor(app: Application, bootBlock: HTMLElement = document.body, debug = false) {
         app.resizeTo = window;
-        super(app, document);
+        super(app, bootBlock);
         this.loadTextures().then(() => {
             this.init(debug);
         });
@@ -153,11 +153,11 @@ export class SmartCat extends Cat {
     }
     lockMouse() {
         this.isMouseCaptured = true;
-        this.document.body.classList.add('nocursor');
+        this.bootBlock.classList.add('nocursor');
     }
     unlockMouse() {
         this.isMouseCaptured = false;
-        this.document.body.classList.remove('nocursor');
+        this.bootBlock.classList.remove('nocursor');
     }
     aiMethods: Record<string, Function> = {
         chooseRandomIntent: () => {
@@ -305,6 +305,6 @@ export class SmartCat extends Cat {
                 aiStateText.text = `Current ai state: ${this.brain.currentBehaviorState}`;
             })
         };
-        document.head.appendChild(nocursor);
+        this.bootBlock.appendChild(nocursor);
     }
 }
