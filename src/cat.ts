@@ -314,6 +314,3 @@ export class SmartCat extends Cat {
         document.head.appendChild(nocursor);
     }
 }
-
-
-const cat = new SmartCat(app, window.document);
