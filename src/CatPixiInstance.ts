@@ -86,6 +86,8 @@ const spriteMap: SpriteMap = {
     },
 }
 
+const playingSprite = './sprites/playing/playing.json'
+
 const staticSprites: Record<string, string> = {
     standing: './sprites/default/standing.json',
     sitting: './sprites/default/sitting_static.json',
@@ -111,6 +113,9 @@ const dynamicStates: Record<string, DynamicState> = {
     },
     laying_down: {
         postState: 'laying',
+    },
+    playing: {
+        fps: 0.1,
     },
     looking_around: {
         postState: 'sitting',
@@ -160,6 +165,10 @@ export class Cat {
     lastClick: Vector = null;
     constructor(app: Application, document: Document) {
         this.app = app;
+        if (!document) {
+            throw new Error('Document is required, please make sure you are using this module in a browser');
+            return;
+        }
         this.document = document;
         this.screenCenter = new Vector(app.screen.width / 2, app.screen.height / 2);
     }
@@ -171,26 +180,21 @@ export class Cat {
         }
         for (const state in staticSprites) {
             const stateData = staticSprites[state];
-            const textures = [];
             loader.add(state, stateData, { crossOrigin: true });
             const resources = await loader.load(state);
-            for (const texture in resources.textures) {
-                textures.push(resources.textures[texture]);
-            }
-            this.staticTextures[state] = textures;
+            this.staticTextures[state] = Object.values(resources.textures);
         }
         for (const state in spriteMap) {
             const stateObject = spriteMap[state];
             for (const direction in stateObject) {
-                const textures = [];
                 loader.add(`${state}_${direction}`, stateObject[direction], { crossOrigin: true });
                 const resources = await loader.load(`${state}_${direction}`);
-                for (const texture in resources.textures) {
-                    textures.push(resources.textures[texture]);
-                }
-                this.texturesForAnimation[`${state}_${direction}`] = textures;
+                this.texturesForAnimation[`${state}_${direction}`] = Object.values(resources.textures);
             }
         }
+        loader.add('playing', playingSprite, { crossOrigin: true });
+        const playingResources = await loader.load('playing');
+        this.texturesForAnimation['playing'] = Object.values(playingResources.textures);
         return Promise.resolve();
     }
     clickListener (event: MouseEvent) {}
@@ -244,7 +248,10 @@ export class Cat {
         if (this.isStaticState(this.currState)) {
             return;
         }
-        const textures = this.texturesForAnimation[`${this.currState}_${this.currDirection}`];
+        let textures = this.texturesForAnimation[`${this.currState}_${this.currDirection}`];
+        if (!textures) {
+            textures = this.texturesForAnimation[`${this.currState}`];
+        } 
         const loop = !dynamicStates[this.currState].postState;
         this.catSelf.textures = textures;
         let fps = dynamicStates[this.currState].fps || textures.length / 20;

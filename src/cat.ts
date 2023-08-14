@@ -15,6 +15,16 @@ const textStyle = new TextStyle({
     fill: 'white',
 })
 
+const nocursor = document.createElement('style');
+nocursor.innerHTML = '.nocursor { cursor: none; }';
+
+const currStateText = new Text('', textStyle);
+const aiStateText = new Text('', textStyle);
+aiStateText.y = 50;
+
+document.body.appendChild(app.view);
+
+
 class Brain {
     aiIntentCompleted = new Event('aiIntentCompleted');
     aiStepCompleted = new Event('aiStepCompleted');
@@ -36,7 +46,6 @@ class Brain {
     }
     setAttentionTimer () {
         this.attentionTimer = setInterval(() => {
-            console.log(this.attentionCount);
             if (this.attentionCount <= 0) {
                 return this.clearAttention();
             }
@@ -86,18 +95,6 @@ class Brain {
     }
 }
 
-const nocursor = document.createElement('style');
-nocursor.innerHTML = '.nocursor { cursor: none; }';
-
-const currStateText = new Text('empty', textStyle);
-const aiStateText = new Text('empty', textStyle);
-
-aiStateText.y = 50;
-
-app.stage.addChild(currStateText, aiStateText);
-
-document.body.appendChild(app.view);
-
 export class SmartCat extends Cat {
     aiIntents = ['sit', 'zoom', 'laydown', 'look_around']; // hunt 
     // aiIntents: string[] = ['zoom']; // debug 
@@ -107,10 +104,10 @@ export class SmartCat extends Cat {
     isPlayingFor: number = 0;
     currentMousePosition: Vector = new Vector(0, 0);
     isMouseCaptured: boolean;
-    constructor(app: Application, document: Document = window.document) {
+    constructor(app: Application, document: Document = window.document, debug = false) {
         super(app, document);
         this.loadTextures().then(() => {
-            this.init();
+            this.init(debug);
         });
     }
     stateManager(delta: number): void {
@@ -258,6 +255,8 @@ export class SmartCat extends Cat {
         },
         stopHunt: () => {
             this.brain.clearIntents();
+            this.isHunting = false;
+            this.unlockMouse();
             this.brain.addIntent('stopHunt', [
                 () => {
                     this.randomSouthDirection();
@@ -266,21 +265,22 @@ export class SmartCat extends Cat {
             ]);
         },
         catchMouse: () => {
-            this.aiMethods.stopHunt();
             this.brain.addIntent('catchMouse', [
                 () => {
-                    this.customFps = 60;
                     this.currState = 'laying_down';
                     this.lockMouse();
-                    this.brain.addNextIntent(() => {
-                        this.isHunting = false;
-                    })
+                    this.customFps = 0.1;
+                    this.brain.attentionCount += 10;
+                    this.currState = 'playing';
                 }
             ]);
         }
     }
-    init() {
+    init(debug = false) {
         super.init();
+        if (debug) {
+            app.stage.addChild(currStateText, aiStateText);
+        }
         const eventsObj = {
             targetReached: addEventListener('targetReached', () => {
                 if (this.isHunting) {
@@ -293,8 +293,7 @@ export class SmartCat extends Cat {
                 }
             }),
             attentionLost: addEventListener('attentionLost', () => {
-                this.isHunting = false;
-                this.unlockMouse();
+                this.aiMethods.stopHunt();
             }),
             aiStepCompleted: addEventListener('aiStepCompleted', () => {
                 this.brain.nextCallback();
