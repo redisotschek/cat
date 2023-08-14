@@ -2,12 +2,6 @@ import { Application, Text, TextStyle } from "pixi.js";
 import { sound } from '@pixi/sound';
 import { Cat, Vector, getCardinal } from "./CatPixiInstance";
 
-const app: Application<HTMLCanvasElement> = new Application(
-    {
-        backgroundAlpha: 0,
-        resizeTo: window,
-    }
-);
 
 const textStyle = new TextStyle({
     fontFamily: 'Arial',
@@ -22,7 +16,6 @@ const currStateText = new Text('', textStyle);
 const aiStateText = new Text('', textStyle);
 aiStateText.y = 50;
 
-document.body.appendChild(app.view);
 
 
 class Brain {
@@ -105,6 +98,7 @@ export class SmartCat extends Cat {
     currentMousePosition: Vector = new Vector(0, 0);
     isMouseCaptured: boolean;
     constructor(app: Application, document: Document = window.document, debug = false) {
+        app.resizeTo = window;
         super(app, document);
         this.loadTextures().then(() => {
             this.init(debug);
@@ -279,7 +273,7 @@ export class SmartCat extends Cat {
     init(debug = false) {
         super.init();
         if (debug) {
-            app.stage.addChild(currStateText, aiStateText);
+            this.app.stage.addChild(currStateText, aiStateText);
         }
         const eventsObj = {
             targetReached: addEventListener('targetReached', () => {

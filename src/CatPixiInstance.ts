@@ -165,6 +165,10 @@ export class Cat {
     lastClick: Vector = null;
     constructor(app: Application, document: Document) {
         this.app = app;
+        if (!app) {
+            throw new Error('App is required, please make sure you provide the constructor with a PIXI Application instance');
+            return;
+        }
         if (!document) {
             throw new Error('Document is required, please make sure you are using this module in a browser');
             return;
