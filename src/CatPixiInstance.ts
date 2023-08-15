@@ -1,5 +1,16 @@
 import { AnimatedSprite, Application, Assets, BaseTexture, SCALE_MODES, Texture } from 'pixi.js';
+import { text } from 'stream/consumers';
 
+function splitArrayIntoChunks(arr: Array<Texture>, chunkSize: number) {
+    const res = [];
+    for (let i = 0; i < arr.length; i += chunkSize) {
+        const chunk = arr.slice(i, i + chunkSize);
+        res.push(chunk);
+    }
+    return res;
+}
+
+const CARDINAL_DIRECTIONS = ['S', 'SW', 'W', 'NW', 'N', 'NE', 'E', 'SE'];
 
 export class Vector {
     x: number;
@@ -19,6 +30,8 @@ export class Vector {
 
 type TextureMap = Record<string, Texture[]>;
 
+type AnimationsMap = Record<string, Texture[]>;
+
 export function getCardinal ({x, y}: Vector): string {
     const meausurementError = 0.1;
     let direction = '';
@@ -30,69 +43,6 @@ export function getCardinal ({x, y}: Vector): string {
     }
     return direction;
 }
-
-type SpriteMap = Record<string, Record<string, string>>;
-
-const spriteMap: SpriteMap = {
-    walking: {
-        S: './sprites/walking/walking_s.json',
-        SW: './sprites/walking/walking_sw.json',
-        W: './sprites/walking/walking_w.json',
-        NW: './sprites/walking/walking_nw.json',
-        N: './sprites/walking/walking_n.json',
-        NE: './sprites/walking/walking_ne.json',
-        E: './sprites/walking/walking_e.json',
-        SE: './sprites/walking/walking_se.json',
-    },
-    running: {
-        S: './sprites/running/running_s.json',
-        SW: './sprites/running/running_sw.json',
-        W: './sprites/running/running_w.json',
-        NW: './sprites/running/running_nw.json',
-        N: './sprites/running/running_n.json',
-        NE: './sprites/running/running_ne.json',
-        E: './sprites/running/running_e.json',
-        SE: './sprites/running/running_se.json',
-    },
-    sitting_down: {
-        S: './sprites/sitting_down/sitting_down_s.json',
-        SW: './sprites/sitting_down/sitting_down_sw.json',
-        W: './sprites/sitting_down/sitting_down_w.json',
-        NW: './sprites/sitting_down/sitting_down_nw.json',
-        N: './sprites/sitting_down/sitting_down_n.json',
-        NE: './sprites/sitting_down/sitting_down_ne.json',
-        E: './sprites/sitting_down/sitting_down_e.json',
-        SE: './sprites/sitting_down/sitting_down_se.json',
-    },
-    laying_down: {
-        S: './sprites/laying_down/laying_down_s.json',
-        SW: './sprites/laying_down/laying_down_sw.json',
-        W: './sprites/laying_down/laying_down_w.json',
-        NW: './sprites/laying_down/laying_down_nw.json',
-        N: './sprites/laying_down/laying_down_n.json',
-        NE: './sprites/laying_down/laying_down_ne.json',
-        E: './sprites/laying_down/laying_down_e.json',
-        SE: './sprites/laying_down/laying_down_se.json',
-    },
-    looking_around: {
-        S: './sprites/looking_around/looking_around_s.json',
-        SW: './sprites/looking_around/looking_around_sw.json',
-        W: './sprites/looking_around/looking_around_w.json',
-        NW: './sprites/looking_around/looking_around_nw.json',
-        N: './sprites/looking_around/looking_around_n.json',
-        NE: './sprites/looking_around/looking_around_ne.json',
-        E: './sprites/looking_around/looking_around_e.json',
-        SE: './sprites/looking_around/looking_around_se.json',
-    },
-}
-
-const playingSprite = './sprites/playing/playing.json'
-
-const staticSprites: Record<string, string> = {
-    standing: './sprites/default/standing.json',
-    sitting: './sprites/default/sitting_static.json',
-    laying: './sprites/default/laying_static.json',
-};
 
 type DynamicState = {
     speed?: number;
@@ -122,9 +72,12 @@ const dynamicStates: Record<string, DynamicState> = {
         fps: 0.1,
     }
 };
+
 BaseTexture.defaultOptions.scaleMode = SCALE_MODES.NEAREST;
 
 const loader = Assets;
+
+const spritesUrl = 'sprites/cat_animations.json';
 
 export class Cat {
     catSelf: AnimatedSprite;
@@ -134,14 +87,13 @@ export class Cat {
         './sounds/zoom1.wav',
         './sounds/zoom2.wav'
     ]
-    customFps: number = null;
+    customFps: number | null;
     bootBlock: HTMLElement;
-    currentMusic: string;
-    initialSpriteTextures: Texture[] = [];
-    statesList = Object.keys(spriteMap);
     defaultState = 'sitting_down';
+    staticStates = ['sitting', 'laying'];
+    staticSprites: TextureMap = {};
     prevState = '';
-    _currState = '';
+    _currState: string = '';
     set currState(state) {
         this._currState = state;
         this.stateTimer = 0;
@@ -152,17 +104,16 @@ export class Cat {
     }
     targetReached = new Event('targetReached');
     stateChanged = new Event('stateChanged');
-    staticTextures: TextureMap = {};
     texturesForAnimation: TextureMap = {};
 
     currDirection: string = 'S';
     
     stateTimer: number = 0;
 
-    target: Vector = null;
+    target: Vector | null = null;
 
     screenCenter: Vector;
-    lastClick: Vector = null;
+    lastClick: Vector | null = null;
     constructor(app: Application, bootBlock: HTMLElement) {
         this.app = app;
         if (!app) {
@@ -177,33 +128,26 @@ export class Cat {
         this.screenCenter = new Vector(this.app.screen.width / 2, this.app.screen.height / 2);
     }
     async loadTextures () {
-        loader.add('initial', './sprites/default/standing.json');
-        const resources = await Assets.load('initial');
-        for (const texture in resources.textures) {
-            this.initialSpriteTextures.push(resources.textures[texture]);
-        }
-        for (const state in staticSprites) {
-            const stateData = staticSprites[state];
-            loader.add(state, stateData, { crossOrigin: true });
-            const resources = await loader.load(state);
-            this.staticTextures[state] = Object.values(resources.textures);
-        }
-        for (const state in spriteMap) {
-            const stateObject = spriteMap[state];
-            for (const direction in stateObject) {
-                loader.add(`${state}_${direction}`, stateObject[direction], { crossOrigin: true });
-                const resources = await loader.load(`${state}_${direction}`);
-                this.texturesForAnimation[`${state}_${direction}`] = Object.values(resources.textures);
+        loader.add('animations', spritesUrl, { crossOrigin: true });
+        const allAnimations: AnimationsMap = (await Assets.load('animations')).animations;
+        const {cat_playing, ...animations} = allAnimations;
+        this.texturesForAnimation['playing'] = cat_playing;
+        for (const [key,  value] of Object.entries(animations)) {
+            const textures = splitArrayIntoChunks(value, value.length / CARDINAL_DIRECTIONS.length);
+            for (const i in textures) {
+                this.texturesForAnimation[`${key}_${CARDINAL_DIRECTIONS[i]}`] = textures[i];
+                const staticState = key.split('_')[0];
+                if (!this.staticSprites[staticState]) {
+                    this.staticSprites[staticState] = [];
+                }
+                this.staticSprites[staticState].push(textures[i][textures[i].length - 1]); //get last element of textures
             }
         }
-        loader.add('playing', playingSprite, { crossOrigin: true });
-        const playingResources = await loader.load('playing');
-        this.texturesForAnimation['playing'] = Object.values(playingResources.textures);
         return Promise.resolve();
     }
     clickListener (event: MouseEvent) {}
     isStaticState (state: string) {
-        return Object.keys(staticSprites).includes(state);
+        return this.staticStates.includes(state);
     }
     mouseMoveListener (event: MouseEvent) {}
     setTarget (v: Vector, movementMode: 'walking' | 'running' = 'walking') {
@@ -230,7 +174,7 @@ export class Cat {
         this.setCatPosition(new Vector(nextX, nextY), vector.normalized);
         return;
     }
-    setCatPosition ({x, y}: Vector, vector: Vector = null) {
+    setCatPosition ({x, y}: Vector, vector: Vector | null = null) {
         // move the sprite to the center of the screen
         if (vector) {
             const direction = getCardinal(vector);
@@ -250,12 +194,16 @@ export class Cat {
     }
     setSprite () {
         if (this.isStaticState(this.currState)) {
+            let textures = this.staticSprites[this.currState];
+            let index = CARDINAL_DIRECTIONS.findIndex(dir => dir === this.currDirection);
+            this.catSelf.textures = textures;
+            this.catSelf.gotoAndStop(index);
             return;
         }
         let textures = this.texturesForAnimation[`${this.currState}_${this.currDirection}`];
         if (!textures) {
             textures = this.texturesForAnimation[`${this.currState}`];
-        } 
+        }
         const loop = !dynamicStates[this.currState].postState;
         this.catSelf.textures = textures;
         let fps = dynamicStates[this.currState].fps || textures.length / 20;
@@ -293,20 +241,25 @@ export class Cat {
     }
     
     completeStateChange () {
-        if (dynamicStates[this.currState].postState) {
-            this.currState = dynamicStates[this.currState].postState;
-            this.changeState();
+        if (dynamicStates[this.currState] && dynamicStates[this.currState].postState) {
+            const postState = dynamicStates[this.currState].postState;
+            if (postState) {
+                this.currState = postState;
+                this.changeState();
+            }
         }
     }
     init() {
-        this.catSelf = new AnimatedSprite(this.initialSpriteTextures);
+        this.catSelf = new AnimatedSprite(this.texturesForAnimation[`${this.defaultState}_${this.currDirection}`]);
         this.catSelf.onComplete = this.completeStateChange.bind(this);
         this.app.stage.addChild(this.catSelf);
-        this.app.view.addEventListener('click', this.clickListener.bind(this));
-        this.app.view.addEventListener('mousemove', this.mouseMoveListener.bind(this));
         this.setCatPosition(this.screenCenter);
         this.catSelf.scale.set(3);
         this.catSelf.anchor.set(0.5);
+        // @ts-ignore
+        this.app.view.addEventListener('click', this.clickListener.bind(this));
+        // @ts-ignore
+        this.app.view.addEventListener('mousemove', this.mouseMoveListener.bind(this));
         // Listen for frame updates
         this.app.ticker.add((delta) => {
             this.stateManager(delta);
