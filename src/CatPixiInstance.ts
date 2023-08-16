@@ -130,8 +130,8 @@ export class Cat {
     async loadTextures () {
         loader.add('animations', spritesUrl, { crossOrigin: true });
         const allAnimations: AnimationsMap = (await Assets.load('animations')).animations;
-        const {cat_playing, ...animations} = allAnimations;
-        this.texturesForAnimation['playing'] = cat_playing;
+        const {playing, ...animations} = allAnimations;
+        this.texturesForAnimation['playing'] = playing;
         for (const [key,  value] of Object.entries(animations)) {
             const textures = splitArrayIntoChunks(value, value.length / CARDINAL_DIRECTIONS.length);
             for (const i in textures) {

@@ -274,10 +274,21 @@ export default class SmartCat extends Cat {
                 this.aiTimer = 0;
             }),
             stateChanged: addEventListener('stateChanged', () => {
-                console.log(this.currState)
             }),
             behaviorChanged: addEventListener('behaviorChanged', () => {
             })
         };
     }
 }
+
+
+// debug
+const app = new Application<HTMLCanvasElement>({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    backgroundColor: 0x1099bb,
+});
+
+document.body.appendChild(app.view);
+
+const cat = new SmartCat(app);
